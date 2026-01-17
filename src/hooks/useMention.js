@@ -120,7 +120,7 @@ export const useMention = (editorRef) => {
     
     // Create mention element
     const mentionSpan = document.createElement("span");
-    mentionSpan.className = "mention bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-medium";
+    mentionSpan.className = "mention bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100";
     mentionSpan.setAttribute("contenteditable", "false");
     mentionSpan.setAttribute("data-type", type);
     mentionSpan.setAttribute("data-id", item.id.toString());

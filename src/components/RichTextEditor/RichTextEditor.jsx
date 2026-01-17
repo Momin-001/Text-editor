@@ -8,6 +8,17 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
   const [content, setContent] = useState(initialContent);
   const [selectedFont, setSelectedFont] = useState("Arial");
   const [showFontMenu, setShowFontMenu] = useState(false);
+  const [formatState, setFormatState] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+    justifyLeft: false,
+    justifyCenter: false,
+    justifyRight: false,
+    justifyFull: false,
+    insertUnorderedList: false,
+    insertOrderedList: false,
+  });
 
   const {
     showMentionMenu,
@@ -63,20 +74,58 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
     return html;
   };
 
+  // Check current format state
+  const checkFormatState = () => {
+    if (!editorRef.current) return;
+    
+    // Check if editor has focus
+    const isFocused = document.activeElement === editorRef.current;
+    if (!isFocused) return;
+    
+    setFormatState({
+      bold: document.queryCommandState("bold"),
+      italic: document.queryCommandState("italic"),
+      underline: document.queryCommandState("underline"),
+      justifyLeft: document.queryCommandState("justifyLeft"),
+      justifyCenter: document.queryCommandState("justifyCenter"),
+      justifyRight: document.queryCommandState("justifyRight"),
+      justifyFull: document.queryCommandState("justifyFull"),
+      insertUnorderedList: document.queryCommandState("insertUnorderedList"),
+      insertOrderedList: document.queryCommandState("insertOrderedList"),
+    });
+  };
+
   // Handle editor content changes
   const handleEditorChange = (e) => {
     const html = getContentWithFont();
     setContent(html);
     handleInput(e);
+    checkFormatState();
     if (onContentChange) {
       onContentChange(html);
     }
   };
 
-  // Format text using document.execCommand
+  // Format text using document.execCommand (toggles automatically)
   const formatText = (command, value = null) => {
+    // For alignment commands, unset other alignments first if they're active
+    if (command.startsWith("justify")) {
+      const alignmentCommands = ["justifyLeft", "justifyCenter", "justifyRight", "justifyFull"];
+      alignmentCommands.forEach((cmd) => {
+        if (cmd !== command && document.queryCommandState(cmd)) {
+          document.execCommand(cmd, false, null);
+        }
+      });
+    }
+    
+    // Execute the command (execCommand toggles by default)
     document.execCommand(command, false, value);
     editorRef.current?.focus();
+    
+    // Update format state after a short delay to ensure state is updated
+    setTimeout(() => {
+      checkFormatState();
+    }, 0);
     
     // Trigger change event
     const html = getContentWithFont();
@@ -202,8 +251,8 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
   ];
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="border border-gray-200 rounded-lg shadow-sm bg-white overflow-hidden">
+    <div className="w-full">
+      <div className="border border-gray-200 rounded bg-white overflow-hidden">
         {/* Formatting Toolbar */}
         <FormattingToolbar
           onFormat={formatText}
@@ -212,6 +261,7 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
           showFontMenu={showFontMenu}
           setShowFontMenu={setShowFontMenu}
           onFontSelect={applyFont}
+          formatState={formatState}
         />
 
         {/* Editor */}
@@ -222,6 +272,9 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
             onInput={handleEditorChange}
             onPaste={handlePaste}
             onKeyDown={handleKeyDown}
+            onMouseUp={checkFormatState}
+            onKeyUp={checkFormatState}
+            onClick={checkFormatState}
             className="min-h-[300px] p-4 focus:outline-none text-gray-800 prose prose-sm max-w-none leading-relaxed"
             style={{ fontFamily: selectedFont }}
             suppressContentEditableWarning={true}
