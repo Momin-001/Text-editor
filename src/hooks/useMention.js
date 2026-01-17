@@ -29,23 +29,13 @@ export const useMention = (editorRef) => {
   // Handle editor input for @ mentions
   const handleInput = useCallback((e) => {
     const selection = window.getSelection();
-    if (!selection.rangeCount) return;
+    if (!selection.rangeCount || !editorRef.current) {
+      setShowMentionMenu(false);
+      setMentionQuery("");
+      return;
+    }
 
     const range = selection.getRangeAt(0);
-    let textNode = range.startContainer;
-    
-    // Walk up to find text node if we're in an element
-    if (textNode.nodeType !== Node.TEXT_NODE) {
-      // Try to find a text node in the current container
-      const walker = document.createTreeWalker(
-        textNode,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      textNode = walker.nextNode() || textNode;
-      
-      if (textNode.nodeType !== Node.TEXT_NODE) return;
-    }
 
     // Get all text before cursor (including parent elements)
     const rangeClone = range.cloneRange();
@@ -53,23 +43,49 @@ export const useMention = (editorRef) => {
     rangeClone.setEnd(range.startContainer, range.startOffset);
     const textBeforeCursor = rangeClone.toString();
     
-    const match = textBeforeCursor.match(/@(\w*)$/);
+    // Match @ followed by optional word characters (only letters, numbers, underscores)
+    // This ensures menu shows when @ is typed and cursor is right after @
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
 
     if (match) {
+      // Check if we're immediately after @ or have typed characters
       const query = match[1];
+      
+      // Only show menu if cursor is right after @ or after characters (not after space/special chars)
+      const charBeforeMatch = textBeforeCursor[match.index - 1];
+      if (charBeforeMatch && !/\s/.test(charBeforeMatch) && charBeforeMatch !== '@') {
+        // There's a character before @ that's not whitespace - don't show menu
+        setShowMentionMenu(false);
+        setMentionQuery("");
+        return;
+      }
+      
       setMentionQuery(query);
       
       // Get cursor position
       const rect = range.getBoundingClientRect();
-      setMentionPosition({
-        top: rect.bottom + window.scrollY + 5,
-        left: rect.left + window.scrollX,
-      });
+      if (rect.width === 0 && rect.height === 0) {
+        // Cursor might be collapsed, try to get position differently
+        const tempRange = range.cloneRange();
+        tempRange.collapse(false);
+        const tempRect = tempRange.getBoundingClientRect();
+        setMentionPosition({
+          top: tempRect.bottom + window.scrollY + 5,
+          left: tempRect.left + window.scrollX,
+        });
+      } else {
+        setMentionPosition({
+          top: rect.bottom + window.scrollY + 5,
+          left: rect.left + window.scrollX,
+        });
+      }
 
       setShowMentionMenu(true);
       setSelectedIndex(0);
     } else {
+      // Close menu immediately when @ is removed, cursor moves away, or non-word char is typed
       setShowMentionMenu(false);
+      setMentionQuery("");
     }
   }, [editorRef]);
 
@@ -87,7 +103,7 @@ export const useMention = (editorRef) => {
     rangeClone.selectNodeContents(editorRef.current);
     rangeClone.setEnd(range.startContainer, range.startOffset);
     const textBeforeCursor = rangeClone.toString();
-    const match = textBeforeCursor.match(/@(\w*)$/);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
 
     if (!match) return;
 
@@ -165,10 +181,14 @@ export const useMention = (editorRef) => {
   }, [showMentionMenu, currentList, selectedIndex, activeTab, insertMention, editorRef]);
 
   useEffect(() => {
-    if (showMentionMenu && currentList.length > 0) {
-      setSelectedIndex(0);
+    if (showMentionMenu) {
+      // Reset selected index when tab or query changes
+      const list = activeTab === "users" ? filteredUsers : filteredItems;
+      if (list.length > 0) {
+        setSelectedIndex(0);
+      }
     }
-  }, [activeTab, mentionQuery, showMentionMenu, currentList.length]);
+  }, [activeTab, mentionQuery, showMentionMenu, filteredUsers.length, filteredItems.length]);
 
   return {
     showMentionMenu,

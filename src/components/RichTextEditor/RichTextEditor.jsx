@@ -31,9 +31,41 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
     }
   }, [initialContent]);
 
+  // Get HTML content with font preserved
+  const getContentWithFont = () => {
+    if (!editorRef.current) return "";
+    
+    let html = editorRef.current.innerHTML;
+    
+    // If editor has a font set but content doesn't have explicit font styles,
+    // ensure font is preserved
+    if (selectedFont && html && html.trim()) {
+      // Check if content has any font-family styles or font tags
+      const hasFontInContent = html.includes('font-family') || 
+                               html.includes('face=') || 
+                               html.match(/<font[^>]*>/i);
+      
+      // Check if content is already wrapped in a div with font-family
+      const isWrapped = html.trim().startsWith('<div style="font-family:');
+      
+      if (!hasFontInContent && !isWrapped) {
+        // Wrap content in a div with font-family to preserve it
+        html = `<div style="font-family: ${selectedFont}">${html}</div>`;
+      } else if (isWrapped && selectedFont) {
+        // Update existing wrapper's font if it exists
+        html = html.replace(
+          /<div style="font-family:[^"]*"/i,
+          `<div style="font-family: ${selectedFont}"`
+        );
+      }
+    }
+    
+    return html;
+  };
+
   // Handle editor content changes
   const handleEditorChange = (e) => {
-    const html = editorRef.current?.innerHTML || "";
+    const html = getContentWithFont();
     setContent(html);
     handleInput(e);
     if (onContentChange) {
@@ -47,7 +79,7 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
     editorRef.current?.focus();
     
     // Trigger change event
-    const html = editorRef.current?.innerHTML || "";
+    const html = getContentWithFont();
     setContent(html);
     if (onContentChange) {
       onContentChange(html);
@@ -56,9 +88,72 @@ export const RichTextEditor = ({ onContentChange, initialContent = "" }) => {
 
   // Apply font family
   const applyFont = (fontFamily) => {
-    formatText("fontName", fontFamily);
+    // Use execCommand to apply font - this should create proper HTML
+    document.execCommand("fontName", false, fontFamily);
+    
+    // Also apply style attribute to ensure font persists
+    // Wrap selection or apply to current container
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      
+      if (!range.collapsed) {
+        // Wrap selected content with span having font-family style
+        try {
+          const selectedContent = range.extractContents();
+          const span = document.createElement("span");
+          span.style.fontFamily = fontFamily;
+          span.appendChild(selectedContent);
+          range.insertNode(span);
+          
+          // Select the inserted span
+          range.selectNodeContents(span);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        } catch (e) {
+          // Fallback to execCommand if wrapping fails
+          console.warn("Font wrapping failed, using execCommand:", e);
+        }
+      } else {
+        // For collapsed selection, ensure parent has font or wrap next typed text
+        let container = range.startContainer;
+        if (container.nodeType === Node.TEXT_NODE) {
+          container = container.parentElement;
+        }
+        
+        // If we're at the root level, wrap current content
+        if (container === editorRef.current || !container) {
+          // Check if content exists
+          if (editorRef.current.textContent.trim()) {
+            // Wrap all content in a div with font
+            const wrapper = document.createElement("div");
+            wrapper.style.fontFamily = fontFamily;
+            while (editorRef.current.firstChild) {
+              wrapper.appendChild(editorRef.current.firstChild);
+            }
+            editorRef.current.appendChild(wrapper);
+          } else {
+            // Set default font for empty editor
+            editorRef.current.style.fontFamily = fontFamily;
+          }
+        } else {
+          // Apply font to current container
+          container.style.fontFamily = fontFamily;
+        }
+      }
+    }
+    
     setSelectedFont(fontFamily);
     setShowFontMenu(false);
+    editorRef.current?.focus();
+    
+    // Trigger change event
+    const html = getContentWithFont();
+    setContent(html);
+    if (onContentChange) {
+      onContentChange(html);
+    }
   };
 
   // Handle paste to remove formatting

@@ -50,13 +50,13 @@ export const MentionMenu = forwardRef(
               value="users"
               className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 data-[state=active]:text-blue-600 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 transition-colors"
             >
-              Users ({currentList.length})
+              Users ({filteredUsers.length})
             </Tabs.Trigger>
             <Tabs.Trigger
               value="items"
               className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 data-[state=active]:text-blue-600 data-[state=active]:border-b-2 data-[state=active]:border-blue-600 transition-colors"
             >
-              Items ({currentList.length})
+              Items ({filteredItems.length})
             </Tabs.Trigger>
           </Tabs.List>
 
@@ -64,18 +64,25 @@ export const MentionMenu = forwardRef(
             value="users"
             className="flex-1 overflow-y-auto p-2 outline-none"
           >
-            {currentList.length === 0 ? (
+            {filteredUsers.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
                 No users found
               </div>
             ) : (
               <div className="space-y-1">
-                {currentList.map((user, index) => (
+                {filteredUsers.map((user, index) => (
                   <div
                     key={user.id}
-                    onClick={() => onSelect(user, "user")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelect(user, "user");
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent editor from losing focus
+                    }}
                     className={`px-3 py-2 rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
-                      index === selectedIndex
+                      activeTab === "users" && index === selectedIndex
                         ? "bg-blue-50 text-blue-700 border border-blue-200"
                         : "hover:bg-gray-50"
                     }`}
@@ -103,18 +110,25 @@ export const MentionMenu = forwardRef(
             value="items"
             className="flex-1 overflow-y-auto p-2 outline-none"
           >
-            {currentList.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div className="p-4 text-center text-gray-500 text-sm">
                 No items found
               </div>
             ) : (
               <div className="space-y-1">
-                {currentList.map((item, index) => (
+                {filteredItems.map((item, index) => (
                   <div
                     key={item.id}
-                    onClick={() => onSelect(item, "item")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelect(item, "item");
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent editor from losing focus
+                    }}
                     className={`px-3 py-2 rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
-                      index === selectedIndex
+                      activeTab === "items" && index === selectedIndex
                         ? "bg-blue-50 text-blue-700 border border-blue-200"
                         : "hover:bg-gray-50"
                     }`}

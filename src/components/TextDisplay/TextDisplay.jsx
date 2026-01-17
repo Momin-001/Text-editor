@@ -17,6 +17,7 @@ export const TextDisplay = ({ content }) => {
         </div>
         <div
           className="min-h-[300px] p-4 text-gray-800 prose prose-sm max-w-none leading-relaxed"
+          style={{ fontFamily: "inherit" }}
           dangerouslySetInnerHTML={{ __html: content }}
         />
       </div>
